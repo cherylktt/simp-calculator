@@ -1,0 +1,96 @@
+@main("Calculator") {
+    <link rel="stylesheet" type="text/css" href="calculator.css">
+
+    <script src="https://cjrtnc.leaningtech.com/3.0/cj3loader.js"></script>
+
+    <div class="glass-container">
+        <h1>SIMP CALCULATOR</h1>
+
+        <div class="code-panel">
+            <h3>Input Protocol</h3>
+            
+            <p>Operations: <code>+, -, *</code> <br> Functions: <code>fib(n), factorial(n)</code></p>
+            <ul>
+                Input options:
+                <li style="font-size: 0.9rem; opacity: 0.8;">Non-SIMP format: <code>5+3</code></li>
+                <li style="font-size: 0.9rem; opacity: 0.8;">SIMP format: <code>x = 5 + 3; return x;</code></li>
+                <li style="font-size: 0.9rem; opacity: 0.8;">Call pre-defined functions: <code>fib(5)</code></li>
+            <ul>
+
+            <textarea id="input" spellcheck="false" placeholder="// Initialize sequence...&#10;x = 5 + 3;&#10;return x;"></textarea>
+            <button id="calcBtn" onclick="runCalculator()">Calculate</button>
+        </div>
+
+        <div class="code-panel">
+            <h3>Data Output</h3>
+            <pre id="output">System Online. Waiting for command...</pre>
+        </div>
+    </div>
+    
+    <script>
+        (async function init() {
+            try {
+                await cheerpjInit();
+            } catch (e) {
+                console.error("CheerpJ failed to load", e);
+            }
+        })();
+
+        async function runCalculator() {
+            const input = document.getElementById('input').value;
+            const output = document.getElementById('output');
+
+            output.innerText = "";
+            output.classList.remove("error");
+
+            try {
+                const response = await fetch('/api/calculate', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'text/plain'},
+                    body: input
+                });
+                const data = await response.json();
+
+                if (data.status === "success") {
+                    // output.innerText = "Compilation successful. Running...\n";
+
+                    const binaryString = atob(data.bytecode)
+                    cheerpOSAddStringFile('/str/GeneratedClass.class', binaryString);
+
+                    const originalLog = console.log;
+                    let capturedOutput = "";
+
+                    console.log = function(msg) {
+                        const strMsg = String(msg);
+
+                        if (strMsg.includes("CheerpJ runtime ready") || strMsg.includes("Jar is loaded")) {
+                            originalLog.apply(console, arguments);
+                            return;
+                        }
+
+                        capturedOutput += strMsg + "\n"
+                        output.innerText += strMsg + "\n"
+                        originalLog.apply(console, arguments);
+                    }
+
+                    try {
+                        await cheerpjRunMain("GeneratedClass", "/str/", "0");
+                    } catch (e) {
+                        output.innerText += "\nRuntime error: " + e;
+                    } finally {
+                        console.log = originalLog;
+                    }
+                
+                } else {
+                    
+                    output.innerText = "Compilation failed:\n" + data.message;
+                    output.classList.add("error");
+                
+                }
+            } catch (err) {
+                output.innerText = "Network error: " + err.message;
+                output.classList.add("error");
+            }
+        }
+    </script>
+}

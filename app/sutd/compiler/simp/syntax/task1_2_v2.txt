@@ -1,0 +1,78 @@
+// E ::= X
+    // E ::= X OP E
+    // E ::= X OP E OP E OP ... until E' ::= epsilon
+
+    enum ExpLE {
+        case VarExpLE(v:VarExp, ep:ExpLEP)
+        case ConstExpLE(l:ConstExp, ep:ExpLEP)
+        case ParenExpLE(e:ParenExp, ep:ExpLEP)
+    }
+
+    import ExpLE.*
+
+    // E ::= XE' | CE' | (E)E'
+    def p_exp:Parser[PEnv,Exp] = choice(p_xep)(choice(p_cep)(p_peep))
+
+    // E ::= XE'
+    def p_xep:Parser[PEnv,Exp] = for {
+        x <- p_var
+        ep <- p_ep
+    } yield fromLE(VarExp(x))(ep)
+
+    // E ::= CE'
+    def p_cep:Parser[PEnv,Exp] = for {
+        c <- p_const
+        ep <- p_ep
+    } yield fromLE(ConstExp(c))(ep)
+
+    // E ::= (E)E'
+    def p_peep:Parser[PEnv,Exp] = for {
+        lp <- p_lparen
+        e <- p_exp
+        rp <- p_rparen
+        ep <- p_ep
+    } yield fromLE(ParenExp(e))(ep)
+
+    enum ExpLEP {
+        case OpExpLEP(op:LToken, e:Exp, ep:ExpLEP)
+        case Eps
+    }
+
+    import ExpLEP.*
+
+    // E' ::= OP EE' | eps
+    def p_ep:Parser[PEnv,ExpLEP] = for {
+        _ <- p_spaces
+        op <- p_op
+        _ <- p_spaces
+        e <- p_exp
+        ep <- p_ep
+    } yield OpExpLEP(op, e, ep)
+
+    def p_op:Parser[PEnv,LToken] = choice(p_plus)(choice(p_minus)(choice(p_mult)(choice(p_lthan)(choice(p_dequal)(p_equal)))))
+
+    def fromLE(e1:Exp)(e2:ExpLEP):Exp = e2 match {
+        case OpExpLEP(op, e, ep) => {
+            println(e1)
+            println(e2)
+            println(op)
+            println(e)
+            println(ep)
+            fromLEP(e1)(op)(e)(ep)
+        }
+        case Eps => e1
+    }
+
+    def fromLEP(e1:Exp)(op:LToken)(e2:Exp)(e3:ExpLEP):Exp = e3 match {
+        case OpExpLEP(op1, e, ep) => fromLEP(operation(e1)(op)(e2))(op1)(e)(ep)
+        case Eps => operation(e1)(op)(e2)
+    }
+
+    def operation(e1:Exp)(op:LToken)(e2:Exp):Exp = op match {
+        case p_plus if true => Plus(e1,e2)
+        case p_minus if true => Minus(e1,e2)
+        case p_mult if true => Mult(e1,e2)
+        case p_lthan if true => LThan(e1,e2)
+        case p_dequal if true => DEqual(e1,e2)
+        case p_equal if true => DEqual(e1,e2)
+    }

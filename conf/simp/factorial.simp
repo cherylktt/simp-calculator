@@ -1,0 +1,8 @@
+y = x + 1;
+f = 1;
+c = 1;
+while c < y {
+    f = f * c;
+    c = c + 1;
+}
+return f;
